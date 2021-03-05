@@ -20,15 +20,17 @@ def unconstrained_rqs(inputs,W,H,D,tail=1,inverse=False):
     D = F.pad(D,pad=(1,1))
     D[..., 0] = 1
     D[...,-1] = 1
-
     outputs[outside_mask] = inputs[outside_mask]
     outputs[inside_mask], log_det[inside_mask] = rqs(
-        inputs[inside_mask],W[inside_mask,:],H[inside_mask,:],D[inside_mask,:],inverse,
-        left=-tail,right=tail,bottom=-tail,top=tail
+        inputs[inside_mask],W[inside_mask,:],H[inside_mask,:],D[inside_mask,:],inverse
+        ,left=-tail
+        ,right=tail
+        ,bottom=-tail
+        ,top=tail
     )
     return outputs, log_det
 
-def rqs(inputs,W,H,D,inverse,left,right,bottom,top,min_W=1e-3):
+def rqs(inputs,W,H,D,inverse,left:int,right:int,bottom:int,top:int,min_W=1e-3):
     B = W.shape[-1]
 
     W = F.softmax(W, dim=-1)
@@ -42,7 +44,7 @@ def rqs(inputs,W,H,D,inverse,left,right,bottom,top,min_W=1e-3):
 
     D = D + F.softplus(D)
 
-    H = F.softmax()
+    H = F.softmax(H,dim=-1)
     H = min_W + (1 - min_W * B) * H
     cumH = torch.cumsum(H,dim=-1)
     cumH = F.pad(cumH,pad=(1,0),mode='constant',value=0.0)
@@ -89,7 +91,7 @@ def rqs(inputs,W,H,D,inverse,left,right,bottom,top,min_W=1e-3):
         alpha = in_H * (in_delta * theta.pow(2) + in_D * theta_one_minus_theta)
         beta  = in_delta + ((in_D + in_D_p - 2 * in_delta) * theta_one_minus_theta)
         outputs = in_cumH + (alpha/beta)
-        dalpha = in_delta.powe(2) * (in_D_p * theta.pow(2) + 2  * in_delta * theta_one_minus_theta + in_D * (1-theta).pow(2))
+        dalpha = in_delta.pow(2) * (in_D_p * theta.pow(2) + 2  * in_delta * theta_one_minus_theta + in_D * (1-theta).pow(2))
         log_det = torch.log(dalpha) - 2 * torch.log(beta)
 
         return outputs, log_det

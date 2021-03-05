@@ -18,7 +18,7 @@ from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-class Flow(nn.Module):
+class Flow(pl.LightningModule):
 
     def __init__(self,prior,flows,shape):
         super().__init__()
@@ -30,7 +30,7 @@ class Flow(nn.Module):
         return self.get_likelyhood(x)
 
     def encode(self,x):
-        z, log_det = x, torch.zeros(x.shape[0])
+        z, log_det = x, torch.zeros(self.shape)
         for flow in self.flows:
             z, log_det = flow(z,log_det,reverse=False)
         return z, log_det
@@ -39,17 +39,21 @@ class Flow(nn.Module):
         z, log_det = self.encode(x)
         log_pz = self.prior.log_prob(z)
 
-        log_px = log_det + log_pz
+        print(log_pz.size())
+        print(log_det.size())
+        log_px = log_det + torch.sum(log_pz,dim=1)
         return log_px
 
+    @torch.no_grad()
     def sample(self,n_samples):
-        z = self.prior.sample(sample_shape=self.shape).to(device)
+        z = self.prior.sample(sample_shape=self.shape)
         log_det = torch.zeros(self.shape)
         for flow in self.flows[::-1]:
             z,log_det = flow(z,log_det,reverse=True)
+        return z
 
     def training_step(self,batch,batch_idx):
-        self.get_likelyhood(batch[0])
+        loss = self.get_likelyhood(batch[0])
         self.log('train_bpd',loss)
         return loss
 
@@ -61,7 +65,7 @@ class Flow(nn.Module):
 
     def validation_step(self,batch,batch_idx):
         loss = self.get_likelyhood(batch[0])
-        self.log('train_bpd',loss)
+        self.log('val_bpd',loss)
 
     def testing_step(self,batch,batch_idx):
         samples = []

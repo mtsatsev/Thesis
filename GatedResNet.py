@@ -76,17 +76,19 @@ class GatedResNet(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self,x):
-        return self.net(x)
+        x = x.reshape(-1,1,x.size()[-1],x.size()[-1])
+        return self.net(x).reshape(128,x.size()[-1],x.size()[-1],-1)
 
 
 # Sanity check
-K = 7
+'''
+K = 3
 x = torch.rand(1,1,28,28)
-res = GatedResNet(in_channels=1,hidden_channels=10,output_channels=3*K-1)
-y = res(x)
-print(y)
+res = GatedResNet(in_channels=1,hidden_channels=5,output_channels=3*K-1)
+y = res(x).reshape(28,28,-1)
 print(y.size())
-W,H,D = torch.split(y,K,dim=1)
+W,H,D = torch.split(y,K,dim=-1)
 print(W.size())
 print(H.size())
 print(D.size())
+'''
