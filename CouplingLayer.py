@@ -18,6 +18,7 @@ from torch.distributions.uniform import Uniform
 from torch.distributions.normal import Normal
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from rqs import unconstrained_rqs,rqs
+from GatedResNet import *
 
 
 ''' Building a coupling layer '''
@@ -52,9 +53,11 @@ class CouplingLayer(nn.Module):
 
         if not reverse:
             nn_out = self.network(z_in)
-            inputs_in = z_in.reshape(-1,self.shape,self.shape)
-            inputs_out = z_out.reshape(-1,self.shape,self.shape)
+            inputs_in = z_in.view(z_in.shape[0],-1)
+            inputs_out = z_out.view(z_in.shape[0],-1)
+            # in_in, in_out = [784,1]
             W,H,D  = torch.split(nn_out,self.K,dim=-1)
+            #W.size = [1,784,3]
             '''
             Vectors theta^W and theta^H are passed through softmax
             and multiplied by 2B.
@@ -66,8 +69,11 @@ class CouplingLayer(nn.Module):
             D is passed through softplus - interpreted as derivatives
             '''
             D = F.softplus(D)
-
-            z_out,ld = unconstrained_rqs(inputs_out,W,H,D,self.B)
+            z_out,ld = unconstrained_rqs(inputs_out,W,H,D,self.shape,self.B)
+            print("Size")
+            print(ld.size())
+            print(z_out.size())
+            print("Size")
             log_det += torch.sum(ld,dim=1)
             out_nr = self.network(z_out)
             W,H,D  = torch.split(out_nr,self.K,dim=-1)
@@ -75,7 +81,7 @@ class CouplingLayer(nn.Module):
             W,H = (2*self.B) * W, (2*self.B) * H
             D = F.softplus(D)
 
-            z_in, ldz = unconstrained_rqs(inputs_in,W,H,D,self.B)
+            z_in, ldz = unconstrained_rqs(inputs_in,W,H,D,self.shape,self.B)
             log_det += torch.sum(ldz,dim=1)
             z = z_in + z_out
             print("Finished if ")
@@ -91,7 +97,8 @@ class CouplingLayer(nn.Module):
             inputs_in = z_in.reshape(self.shape,self.shape)
             inputs_out = z_out.reshape(self.shape,self.shape)
 
-            z_in,ld = unconstrained_rqs(inputs_in,W,H,D,self.B,inverse=True)
+            z_in,ld = unconstrained_rqs(inputs_in,W,H,D,self,shape,self.B,inverse=True)
+
             log_det += torch.sum(ld,dim=1)
             out = self.network(z_in).reshape(self.shape,self.shape,-1)
 
@@ -100,7 +107,7 @@ class CouplingLayer(nn.Module):
             W,H = (2*self.B) * W, (2*self.B) * H
             D = F.softplus(D)
 
-            z_out, ld = unconstrained_rqs(inputs_out,W,H,D,self.B,inverse=True)
+            z_out, ld = unconstrained_rqs(inputs_out,W,H,D,self.shape,self.B,inverse=True)
             log_det += torch.sum(ld,dim=1)
 
             z = z_in + z_out
@@ -119,6 +126,18 @@ def checkerBoardMask(h,w,inverse=False):
 
 
 '''
+dim1=10
+dim0=40
+batch_size=150
+x = torch.rand(batch_size,1,dim0,dim1)
+K = 3
+ld = torch.rand(dim0)
+cl = CouplingLayer(network=GatedResNet(1,16,K*3-1,batch_size=batch_size),
+              mask=checkerBoardMask(w=dim0,h=dim1,inverse=False),
+              in_channels=1,shape=dim0)
+
+cl(x,ld)
+
 t = torch.rand((1,1,10,10))
 mask = checkerBoardMask(10,10)
 print(mask)

@@ -76,7 +76,7 @@ def discretize(example):
 if __name__ == '__main__':
 
     batch_size = 128
-
+    '''
     train_data = torchvision.datasets.MNIST(root="~/Documents/nncourse",
                                        train=True,
                                        transform=transforms.ToTensor(), #.Compose([transforms.ToTensor(),#discretize]),
@@ -110,10 +110,12 @@ if __name__ == '__main__':
         ax[1][i].imshow(valid_data[i][0][0],cmap='gray')
         ax[1][i].set_title("From Validation set")
     plt.show()
-
+    '''
+    x = torch.rand(128,1,28,28)
     nf = create_network()
     #x = discretize(torch.rand(1,28,28))
     #nf(x)
+    nf(x)
 
     flow_dict = {'model':{}}
 

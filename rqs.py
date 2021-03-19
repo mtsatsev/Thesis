@@ -10,17 +10,25 @@ def searchsorted(bin_locations, inputs, eps=1e-6):
     ) - 1
 
 
-def unconstrained_rqs(inputs,W,H,D,tail=1,inverse=False):
+def unconstrained_rqs(inputs,W,H,D,shape,tail=1,inverse=False):
     inside_mask = (inputs >= -tail) & (inputs <= tail)
     outside_mask = ~inside_mask
+    # mask = [784]
 
     outputs = torch.zeros_like(inputs)
     log_det = torch.zeros_like(inputs)
+    # lg, out = [784]
+    print("INPUTS")
+    print(inputs.size())
+    print("INPUTS")
+
 
     D = F.pad(D,pad=(1,1))
     D[..., 0] = 1
     D[...,-1] = 1
     outputs[outside_mask] = inputs[outside_mask]
+    # W = [784,3]
+
     outputs[inside_mask], log_det[inside_mask] = rqs(
         inputs[inside_mask],W[inside_mask,:],H[inside_mask,:],D[inside_mask,:],inverse
         ,left=-tail
@@ -28,7 +36,7 @@ def unconstrained_rqs(inputs,W,H,D,tail=1,inverse=False):
         ,bottom=-tail
         ,top=tail
     )
-    return outputs, log_det
+    return outputs.reshape(1,1,shape,-1), log_det.reshape(shape,-1)
 
 def rqs(inputs,W,H,D,inverse,left:int,right:int,bottom:int,top:int,min_W=1e-3):
     B = W.shape[-1]

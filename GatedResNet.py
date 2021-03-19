@@ -53,7 +53,7 @@ class GatedConv(nn.Module):
 
 
 class GatedResNet(nn.Module):
-    def __init__(self,in_channels,hidden_channels,output_channels,num_layers=3):
+    def __init__(self,in_channels,hidden_channels,output_channels,num_layers=3,batch_size=1):
         '''
         Creates GatedResNet using the previous modules.
         Inputs:
@@ -62,6 +62,7 @@ class GatedResNet(nn.Module):
             output_channels - Number of output channels (3K-1 * in_channels)
         '''
         super().__init__()
+        self.batch_size=batch_size
         layers = [nn.Conv2d(in_channels, hidden_channels,kernel_size=3,padding=1)]
         for _ in range(num_layers):
             layers += [
@@ -76,8 +77,9 @@ class GatedResNet(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self,x):
-        x = x.reshape(-1,1,x.size()[-1],x.size()[-1])
-        return self.net(x).reshape(128,x.size()[-1],x.size()[-1],-1)
+        x = self.net(x)#.view(*x.shape[:3],-1)
+        x = x.view(self.batch_size,-1,*x.shape[1:2])
+        return x
 
 
 # Sanity check
@@ -85,7 +87,7 @@ class GatedResNet(nn.Module):
 K = 3
 x = torch.rand(1,1,28,28)
 res = GatedResNet(in_channels=1,hidden_channels=5,output_channels=3*K-1)
-y = res(x).reshape(28,28,-1)
+y = res(x)
 print(y.size())
 W,H,D = torch.split(y,K,dim=-1)
 print(W.size())
