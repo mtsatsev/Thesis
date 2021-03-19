@@ -30,7 +30,11 @@ class Flow(pl.LightningModule):
         return self.get_likelyhood(x)
 
     def encode(self,x):
-        z, log_det = x, torch.zeros(self.shape)
+        z, log_det = x, torch.zeros_like(x)
+        print("encode")
+        print(z.size())
+        print("encode")
+
         for flow in self.flows:
             z, log_det = flow(z,log_det,reverse=False)
         return z, log_det
@@ -39,15 +43,15 @@ class Flow(pl.LightningModule):
         z, log_det = self.encode(x)
         log_pz = self.prior.log_prob(z)
 
-        print(log_pz.size())
         print(log_det.size())
-        log_px = log_det + torch.sum(log_pz,dim=1)
+        print(log_pz.size())
+        log_px = log_det + log_pz
         return log_px
 
     @torch.no_grad()
     def sample(self,n_samples):
         z = self.prior.sample(sample_shape=self.shape)
-        log_det = torch.zeros(self.shape)
+        log_det = torch.zeros_like(z)
         for flow in self.flows[::-1]:
             z,log_det = flow(z,log_det,reverse=True)
         return z

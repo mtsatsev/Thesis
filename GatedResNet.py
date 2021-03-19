@@ -53,7 +53,7 @@ class GatedConv(nn.Module):
 
 
 class GatedResNet(nn.Module):
-    def __init__(self,in_channels,hidden_channels,output_channels,num_layers=3,batch_size=1):
+    def __init__(self,in_channels,hidden_channels,output_channels,num_layers=3,batch_size=128):
         '''
         Creates GatedResNet using the previous modules.
         Inputs:

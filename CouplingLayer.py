@@ -74,7 +74,10 @@ class CouplingLayer(nn.Module):
             print(ld.size())
             print(z_out.size())
             print("Size")
-            log_det += torch.sum(ld,dim=1)
+            print("LOG_DET SIZE")
+            print(log_det.size())
+            print("LOG_DET SIZE")
+            log_det += ld
             out_nr = self.network(z_out)
             W,H,D  = torch.split(out_nr,self.K,dim=-1)
             W,H = torch.softmax(W,dim=-1),torch.softmax(H,dim=-1)
@@ -82,7 +85,7 @@ class CouplingLayer(nn.Module):
             D = F.softplus(D)
 
             z_in, ldz = unconstrained_rqs(inputs_in,W,H,D,self.shape,self.B)
-            log_det += torch.sum(ldz,dim=1)
+            log_det += ldz
             z = z_in + z_out
             print("Finished if ")
             return z, log_det
@@ -125,24 +128,16 @@ def checkerBoardMask(h,w,inverse=False):
     return mask
 
 
-'''
-dim1=10
-dim0=40
-batch_size=150
+dim1=28
+dim0=28
+batch_size=128
 x = torch.rand(batch_size,1,dim0,dim1)
 K = 3
-ld = torch.rand(dim0)
+ld = torch.rand_like(x)
 cl = CouplingLayer(network=GatedResNet(1,16,K*3-1,batch_size=batch_size),
               mask=checkerBoardMask(w=dim0,h=dim1,inverse=False),
               in_channels=1,shape=dim0)
 
-cl(x,ld)
-
-t = torch.rand((1,1,10,10))
-mask = checkerBoardMask(10,10)
-print(mask)
-t = t * mask
-print(t)
-mask2 =checkerBoardMask(10,10,True)
-print(mask2)
-'''
+z,l = cl(x,ld)
+print(z.size())
+print(l.size())

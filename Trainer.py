@@ -29,7 +29,7 @@ def train_flow(flow, model_name="MNISTFlow"):
     trainer = pl.Trainer(default_root_dir=os.path.join(".",model_name),
                          checkpoint_callback=ModelCheckpoint(save_weights_only=True, mode="min", monitor="val_bpd"),
                          gpus=1 if torch.cuda.is_available() else 0,
-                         max_epochs=200,
+                         max_epochs=1,
                          gradient_clip_val=1.0,
                          callbacks=[LearningRateMonitor("epoch")])
     trainer.logger._log_graph = True
