@@ -81,7 +81,6 @@ class GatedResNet(nn.Module):
         x = x.view(self.batch_size,-1,*x.shape[1:2])
         return x
 
-
 # Sanity check
 '''
 K = 3

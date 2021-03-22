@@ -18,9 +18,6 @@ def unconstrained_rqs(inputs,W,H,D,shape,tail=1,inverse=False,batch_size=128):
     outputs = torch.zeros_like(inputs)
     log_det = torch.zeros_like(inputs)
     # lg, out = [784]
-    print("INPUTS")
-    print(inputs.size())
-    print("INPUTS")
 
 
     D = F.pad(D,pad=(1,1))

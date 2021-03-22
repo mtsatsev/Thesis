@@ -70,6 +70,7 @@ class CouplingLayer(nn.Module):
             '''
             D = F.softplus(D)
             z_out,ld = unconstrained_rqs(inputs_out,W,H,D,self.shape,self.B)
+            '''
             print("Size")
             print(ld.size())
             print(z_out.size())
@@ -77,6 +78,7 @@ class CouplingLayer(nn.Module):
             print("LOG_DET SIZE")
             print(log_det.size())
             print("LOG_DET SIZE")
+            '''
             log_det += ld
             out_nr = self.network(z_out)
             W,H,D  = torch.split(out_nr,self.K,dim=-1)

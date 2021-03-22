@@ -29,7 +29,7 @@ def train_flow(flow, model_name="MNISTFlow"):
     trainer = pl.Trainer(default_root_dir=os.path.join(".",model_name),
                          checkpoint_callback=ModelCheckpoint(save_weights_only=True, mode="min", monitor="val_bpd"),
                          gpus=1 if torch.cuda.is_available() else 0,
-                         max_epochs=1,
+                         max_epochs=1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           ,
                          gradient_clip_val=1.0,
                          callbacks=[LearningRateMonitor("epoch")])
     trainer.logger._log_graph = True
@@ -76,7 +76,7 @@ def discretize(example):
 if __name__ == '__main__':
 
     batch_size = 128
-    '''
+
     train_data = torchvision.datasets.MNIST(root="~/Documents/nncourse",
                                        train=True,
                                        transform=transforms.ToTensor(), #.Compose([transforms.ToTensor(),#discretize]),
@@ -110,12 +110,12 @@ if __name__ == '__main__':
         ax[1][i].imshow(valid_data[i][0][0],cmap='gray')
         ax[1][i].set_title("From Validation set")
     plt.show()
-    '''
-    x = torch.rand(128,1,28,28)
+
+    #x = torch.rand(128,1,28,28)
     nf = create_network()
     #x = discretize(torch.rand(1,28,28))
     #nf(x)
-    nf(x)
+    #nf(x)
 
     flow_dict = {'model':{}}
 

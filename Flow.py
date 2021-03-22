@@ -42,9 +42,6 @@ class Flow(pl.LightningModule):
     def get_likelyhood(self,x):
         z, log_det = self.encode(x)
         log_pz = self.prior.log_prob(z)
-
-        print(log_det.size())
-        print(log_pz.size())
         log_px = log_det + log_pz
         return log_px
 
@@ -58,8 +55,8 @@ class Flow(pl.LightningModule):
 
     def training_step(self,batch,batch_idx):
         loss = self.get_likelyhood(batch[0])
-        self.log('train_bpd',loss)
-        return loss
+        self.log('train_bpd',loss.sum())
+        return loss.sum()
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
@@ -69,7 +66,7 @@ class Flow(pl.LightningModule):
 
     def validation_step(self,batch,batch_idx):
         loss = self.get_likelyhood(batch[0])
-        self.log('val_bpd',loss)
+        self.log('val_bpd',loss.sum())
 
     def testing_step(self,batch,batch_idx):
         samples = []
