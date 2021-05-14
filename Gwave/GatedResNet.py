@@ -1,0 +1,101 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+
+from rqs import unconstrained_rqs
+
+class ConcatELU(nn.Module):
+    '''
+    Activation function which applies ELU in both directions.
+    '''
+    def forward(self,x):
+        return torch.cat([F.elu(x),F.elu(-x)],dim=1)
+
+class LayerNormChannels(nn.Module):
+    def __init__(self,in_channels):
+        '''
+        Applies normalization in accross the input channels.
+        Inputs:
+            Number of channels.
+        '''
+        super().__init__()
+        self.layer_norm = nn.LayerNorm(in_channels)
+
+    def forward(self,x):
+        x = x.permute(0,2,1)
+        x = self.layer_norm(x)
+        x = x.permute(0,2,1)
+        return x
+
+class GatedConv(nn.Module):
+    def __init__(self,in_channels,hidden_channels):
+        '''
+        Create a two layer deep network for ResNet with input gate.
+        Inputs:
+            in_channels     - Number of input channels.
+            hidden_channels - Number of hidden channels.
+        '''
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv1d(in_channels, hidden_channels,kernel_size=3,padding=1),
+            ConcatELU(),
+            nn.Conv1d(2*hidden_channels, 2*in_channels, kernel_size=1)
+        )
+
+    def forward(self,x):
+        out = self.net(x)
+        val, gate = out.chunk(2,dim=1)
+        return x + val * torch.sigmoid(gate)
+
+
+class GatedResNet(nn.Module):
+    def __init__(self,in_channels,hidden_channels,output_channels,num_layers=3,batch_size=128):
+        '''
+        Creates GatedResNet using the previous modules.
+        Inputs:
+            in_channels     - Number of input channels.
+            hidden_channels - Number of hidden channels.
+            output_channels - Number of output channels (3K-1 * in_channels)
+        '''
+        super().__init__()
+        self.batch_size=batch_size
+        layers = [nn.Conv1d(in_channels, hidden_channels,kernel_size=3,padding=1)]
+        for _ in range(num_layers):
+            layers += [
+                GatedConv(hidden_channels,hidden_channels),
+                LayerNormChannels(hidden_channels)
+            ]
+        layers += [
+            ConcatELU(),
+            nn.Conv1d(2*hidden_channels,output_channels,kernel_size=3,padding=1)
+        ]
+        #layers += [nn.Linear(series_shape,1)]
+
+        self.net = nn.Sequential(*layers)
+
+    def forward(self,x):
+        x = self.net(x)
+        x = x.mean(dim=2,keepdims=True)
+        x = x.permute(0,2,1)
+        return x
+
+# Sanity check
+'''
+K = 3
+x = torch.rand(128,1,24)
+res = GatedResNet(in_channels=1,hidden_channels=5,output_channels=3*K-1)
+y = res(x)
+print(y.shape)
+W,H,D = torch.split(y,K,dim=-1)
+print(W.size())
+print(H.size())
+print(D.size())
+
+#o,l = unconstrained_rqs(x,W,H,D)
+
+#print(o.size())
+#print(l.size())
+'''
