@@ -527,9 +527,6 @@ class IAF(nn.Module):
         '''
         super().__init__()
 
-        if rotations and (num_blocks%dim != 0):
-            raise ValueError("The number of mades or the number of blocks must be a multiple of the input dimensions dim is: {} but num_blocks is: {}".format(dim,num_blocks))
-
         # Setup flows
         flows = []
         print(rotations_made)
