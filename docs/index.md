@@ -1,9 +1,6 @@
 # Parameter inference of Sinusoidal Waves
-    \begin{figure}[h]
-    \centering
-     \subfloat[\centering Forward transform]
-     {
-     \begin{tikzpicture}[scale=1.1]
+    
+ $\begin{tikzpicture}[scale=1.1]
  \tikzset{
         myarrow/.style={->, >=latex', thick},
         diamond/.style={rectangle,draw,scale=3,fill=Apricot,color=Apricot, fill opacity=0.4, thick},
@@ -107,12 +104,7 @@
     \draw [->](c) -| (t) {};
     \draw [->](m) -| (t) {};
     \end{tikzpicture}
-     
-    }%
-    \caption{Inverse Autoregressive Flow. All $x_i$'s are used to produce the parameters conditioning the transformer, so they can all be computed in one go.}%
-    \label{fig:IAF}
-\end{figure}
-
+ $$
 # Introduction
 
 Here we will take a closer look at the technical implementation of an inverse autoregressive flow model with spline transformation for sampling based inference. In effect this closely follows the implementation of the algorithm used in my Thesis _Parameter Inference of Gravitational Waves using Inverse Autoregressive Spline Flow_, and produced the results in Appendix A.
