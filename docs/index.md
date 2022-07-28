@@ -103,6 +103,20 @@ plt.show()
 
 Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in the Thesis
 
+## Important Equations 
+
+$$
+\begin{align}
+a &= (y_{i+1}s_i - y_{i+1}\delta_i - y_is_i + y_i\delta_i) + (-y_i\delta_i -y_i\delta_{i+1} + 2y_is_i +\text{y}\delta_i + \text{y}\delta_{i+1} - 2\text{y}s_i)
+&=(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],
+b &= (y_{i+1}\delta_i + y_i \delta_i) + (y_i\delta_i + y_i\delta_{i+1}-2y_is_i - \text{y}\delta_i - \text{y}\delta_{i+1} + \text{y}2s_i)
+&= (y_{i+1} - y-i) \delta_i + (y_i - \text{y})\Big[ \delta_i + \delta_{i+1} + 2s_i\Big]
+&= (y_{i+1} - y-i) \delta_i - (\text{y}-y_i)\Big[ \delta_i + \delta_{i+1} + 2s_i\Big],
+c &= y_is_i - \text{y}s_i = -s_i(\text{y}-y_i)
+\end{align}
+$$
+
+
 To implement the transform we create a class for it. 
 
 The skeleton structure of the class looks as follows:
