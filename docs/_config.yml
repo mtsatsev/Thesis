@@ -1,4 +1,4 @@
 # Build settings
 markdown: kramdown
-theme: jekyll-theme-moonwalk
+theme: jekyll-theme-cayman
 usemathjax: true
