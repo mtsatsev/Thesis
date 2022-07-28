@@ -40,9 +40,7 @@ However, this computation requires the evaluation of the likelihood $p(S|\xi)$. 
 # Sinusoidal Waves data.
 
 Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal
-$$
-S(t) = A \sin(2\pi f t + \varphi) + U(t)
-$$
+$$S(t) = A \sin(2\pi f t + \varphi) + U(t)$$
 
 , we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
 
