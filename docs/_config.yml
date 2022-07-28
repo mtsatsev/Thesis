@@ -1,4 +1,4 @@
 # Build settings
-theme: jekyll-theme-midnight
 markdown: kramdown
+theme: jekyll-theme-midnight
 usemathjax: true
