@@ -355,7 +355,7 @@ def derivative(self,d,phi):
 ```
 
 # Inverse Autoregressive Flow
-![IAF](docs/IAF.png)
+![iaf]("docs/IAF.png")
 A normalizing flow is a transformation from a normal distribution to some complex distribution where this is allowed given the change of variables formula.
 
 It can sample $\mathbf{z} = f_{\theta}(\mathbf{x})$ and evaluation densities
