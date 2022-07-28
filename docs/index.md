@@ -107,9 +107,9 @@ Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in 
 
 $$
 \begin{equation}
-a &=(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],\\
-b &= (y_{i+1} - y-i) \delta_i - (\text{y}-y_i)\Big[ \delta_i + \delta_{i+1} + 2s_i\Big],\\
-c &= y_is_i - \text{y}s_i = -s_i(\text{y}-y_i) 
+a =(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],\\
+b = (y_{i+1} - y-i) \delta_i - (\text{y}-y_i)\Big[ \delta_i + \delta_{i+1} + 2s_i\Big],\\
+c = y_is_i - \text{y}s_i = -s_i(\text{y}-y_i) 
 \end{equation}
 $$
 
