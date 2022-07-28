@@ -99,44 +99,138 @@ for (S,xi) in trn_data:
 plt.show()
 ```
 
-# Spline trasnfrom
+# Spline transform
 
+Based on ``Algorithm 1 in the Thesis Rational Quadratic Spline for input x and context h``
 
-$$
-\begin{algorithm}
-\caption{Rational Quadratic Spline for input \textbf{x} and context \textbf{h}}\label{alg:splinealg}
-\begin{algorithmic}
-\State $\theta = \mathcal{NN}(\mathbf{x,h})$
-\State $[\theta^W,\theta^H,\theta^D] = \theta$ \Comment{Split}
-\State \textbf{W} = [\textbf{0}, softmax($\theta^W$)] \Comment{Pad with \textbf{0} vector}
-\State \textbf{H} = [\textbf{0}, softmax($\theta^H$)] \Comment{Pad with \textbf{0} vector}
-\For {i in \textbf{W} and \textbf{H}}
-    \State \textbf{X}$_i$ = $\sum^i_{k=1}\mathbf{W}_k$ \Comment{Cumulative sum}
-    \State \textbf{Y}$_i$ = $\sum^i_{k=1}\mathbf{H}_k$ \Comment{Cumulative sum}
-\EndFor
-\State $\mathbf{X}$ = 2 $\cdot$ B $\cdot \mathbf{X} - B$
-\State $\mathbf{Y}$ = 2 $\cdot$ B $\cdot \mathbf{Y} - B$
-\State \textbf{D} = softplus([\textbf{C},$\theta^D$,\textbf{C}]) \Comment{Pad with C=$\log(e^{1-1e-3}-1)$}
-\If { forward }
-\State \textbf{P} = Search(\textbf{x},\textbf{X})
-\Else 
-\State \textbf{P} = Search(\textbf{x},\textbf{Y})
-\EndIf
-\State $x_i,x_{i+1}$ = Gather(\textbf{X},\textbf{P}) \Comment{Search the \textit{x} values}
-\State $y_i,y_{i+1}$ = Gather(\textbf{Y},\textbf{P}) \Comment{Search the \textit{y} values}
-\State $\delta_i,\delta_{i+1}$ = Gather(\textbf{D},\textbf{P}) \Comment{Search the $\delta$ values}
-\If{ forward }
-    \State $\mathbf{z} = y_i + \mathlarger{\frac{(y_{i+1} - y_i)\Big[ s_i\phi^2 + \delta_i \phi(1-\phi) \Big]}{s_i + \Big[ \delta_i + \delta_{i+1} - 2s_i \Big]\phi(1-\phi)}}$ \Comment{Equations 2.25, 2.18, 2.19}
-    \State  $ \mathbf{J}_f =  \log(s_i^2\Big[\delta_{i+1} \phi^2 + 2s_i\phi(1-\phi) + \delta_i(1-\phi)^2 \Big]) - 2 * \log(\Big[ \beta_i(\phi)\Big])$
-\Else
-    \State  $\mathbf{z} = \mathlarger{\frac{2c}{-b-\sqrt{b^2-4ac}}w_i +x_i}$ \Comment{Equations 2.33, 2.34, 2.35, 2.36}
-    
-    \State  $ \mathbf{J}_f =  -\log(s_i^2\Big[\delta_{i+1} \phi^2 + 2s_i\phi(1-\phi) + \delta_i(1-\phi)^2 \Big]) - 2 * \log(\Big[ \beta_i(\phi)\Big])$
-\EndIf
-\end{algorithmic}
-\end{algorithm}
-$$
+To implement the transform we create a class for it. 
 
+The skeleton structure of the class looks as follows:
+
+```python
+splineShared = collections.namedtuple('splineShared','x_k,y_k,delta_k,delta_kp1,w_k,h_k,s_k')
+
+class RationalQuadraticSpline():
+  
+    def __init__(self,W,H,D,bounds):
+        self.W = W
+        self.H = H
+        self.D = self.create_derivatives(D,1e-3)
+        self.B = bounds
+
+    def set_theta(self,theta):
+          W,H,D = torch.chunk(theta,3,dim=-1)
+          self.W = W / np.sqrt(128)
+          self.H = H / np.sqrt(128)
+          self.D = self.create_derivatives(D,1e-3)
+
+    def create_derivatives(self,derivatives,min_deriv):
+        pass    
+
+    def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
+        pass
+
+    def forward(self,x):
+        pass
+
+    def backward(self,z):
+        pass
+
+    def derivative(self,d,phi):
+        pass
+```
+
+We can observe that forward(Equation 2.25), backward(Eqations 2.33, 2.34, 2.35, 2.36) and derivative(Equation 2.30) computations all use the same parameters $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1},s_i,w_i,h_i$ and therefor we consider them to be shared variables and we construct them in a different function ``compute_shared``. 
+
+The implementation of ``compute_shared`` represents the whole algorithm from splitting $\theta$ to gathering the variables. To do that we need 3 additional functions:
+1. We see that $\theta^W$ and $\theta^H$ that are treated as the unnormalized widths and heights undergo the same normalization to obtain the widths and heights. So we can use a function to represent that update, although, this is not necessary it shortens the code base. The function is called ``update_WH``. 
+2. We need a function to search in knots (widths and heights). In section (3.3.1) a formula is presented which acts like a drop in replacement for binary search ``search_knot``. 
+3. We need a function to gather from the widths, heights and derivatives. Pytorch already has ``.gather`` function implemented for its tensors. 
+
+```python
+
+def update_WH(self,WH):
+      '''Implementation 3. from the paper for a single theta^W or theta^H'''
+
+      # Apply softmax
+      param = F.softmax(WH,dim=-1) 
+
+      # This normalization is required
+      param = 1e-3 + (1 - 1e-3 * WH.shape[-1]) * param
+
+      # Cumulative sum
+      cumulative_param = torch.cumsum(param,dim=-1)
+
+      # Pad and place within the bounds
+      cumulative_param = F.pad(cumulative_param,pad=(1,0),mode='constant',value=0.0)
+      cumulative_param = 2 * self.B * cumulative_param - self.B
+      cumulative_param[...,0]  = -self.B
+      cumulative_param[...,-1] =  self.B
+      
+      return cumulative_param
+
+def search_knot(self,x,WH,eps=1e-6):
+    WH[...,-1] +=eps
+    return torch.sum(x[...,None] >= WH,dim=-1) - 1  
+```
+
+The implementation of ``compute_shared`` goes in a few steps:
+1. Update all $\theta$'s. 
+2. Check if we need the forward or inverse function. 
+  * If forward search in the widths.
+  * If inverse search in the heights.
+3. Gather $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1}$
+4. Compute $s_i,w_i,h_i$.
+5. Return a ``splineShared`` tuple with the values.
+
+```python
+def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
+      # At least x or y must be specified
+      assert (x is None) != (y is None)
+      # Check if we need to search in the widths or heights
+      is_x = (x is not None)
+
+      # Update theta^W and theta^H to obtain {x,y}_k
+      xs = self.update_WH(W)
+      ys = self.update_WH(H)
+
+      # Update the derivatives (1e-3 + is needed for numeric stability)
+      derivatives = 1e-3 + F.softplus(D)
+
+      # Search in the widths or the heights
+      if is_x:
+          knot_positions = self.search_knot(x,xs)[...,None]
+      else:
+          knot_positions = self.search_knot(y,ys)[...,None]
+
+      # Point 3
+      x_k   = xs[...,:-1].gather(-1,knot_positions)[...,0] 
+      x_kp1 = xs[...,1:].gather(-1,knot_positions)[...,0]
+
+      y_k   = ys[...,:-1].gather(-1,knot_positions)[...,0] 
+      y_kp1 = ys[...,1:].gather(-1,knot_positions)[...,0]
+
+      delta_k   = derivatives.gather(-1,knot_positions)[...,0]
+      delta_kp1 = derivatives[...,1:].gather(-1,knot_positions)[...,0]
+
+      # Point 4
+      w_k = (x_kp1 - x_k) #input_bin_widths = widths.gather
+      h_k = (y_kp1 - y_k) #input_heights
+      s_k = h_k / w_k # input_delta = (heights/widths).gather
+
+      # Point 5
+      return splineShared(
+          x_k=x_k,
+          y_k=y_k,
+          delta_k=delta_k,
+          delta_kp1=delta_kp1,
+          w_k=w_k,
+          h_k=h_k,
+          s_k=s_k
+      )
+```
+
+ 
 
 
 # Inverse Autoregressive Flow
