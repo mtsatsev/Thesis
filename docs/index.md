@@ -21,6 +21,8 @@ import math
 import matplotlib.pyplot as plt
 import corner
 import numpy as np
+
+from nflows.transforms.made import MADE
 ```
 
 # Sampling Based Inference
@@ -37,7 +39,10 @@ However, this computation requires the evaluation of the likelihood $p(S|\xi)$. 
 
 # Sinusoidal Waves data.
 
-Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal $$S(t) = A \sin(2\pi f t + \varphi) + U(t) (1)$$, we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
+Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal
+$\begin{align}
+S(t) = A \sin(2\pi f t + \varphi) + U(t)
+end{\align}$, we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
 
 The parameters have the following properties:
 
@@ -107,10 +112,50 @@ $$p_{\theta}(\mathbf{z}) = p_x(\mathbf{x}) |det(\frac{\partial \mathbf{x}}{\math
 Normalizing flows must be:
 1. Invertible.
 2. Differentiable.
-3. Easy to calculate the determinant.
+3. Easy to calculate the determinant(Autoregressive).
 
 
+An inverse autoregressive layer consists of a list of autoregressive networks (MADE) which we take from the nflows library [nflows](https://github.com/bayesiains/nflows/blob/master/nflows/transforms/made.py) that produces autoregressive parameters $\theta$ based on the prior distribution, which we denote as X and uses those parameters to transform them to the posterior, denoted z during sampling and from z to x during training. The prior is a three-dimensional Gaussian $\mathcal{N}(0:1)^3$.
 
 
+The reason why we want a list of autoregressive networks is because we might want to permute the parameters $\xi$, each with its own dedicated MADE network, between which the features are permuted to ensure full dependence of every feature on all others.
 
-# Part 1: Data
+To implement the splines the output of the last MADE has to be 3 * the number of knots - 1.
+
+```python
+class IAFBlock(nn.Module):
+    """ An inverse autoregressive flow block that uses a MADE network to parameterize an affine transformation """
+
+    def __init__(self, dim: int, context_dim: int, hidden: int, made_num_blocks: int, num_mades: int, rotations: bool , K: int, B: int):
+        '''
+        :param dim            : input dimensions. In this case these are the A,f,phi therefor dim = 3
+        :param context dim    : corresponds to the length of the wave
+        :param hidden         : the number of hidden neurons in the residual blocks in MADE
+        :param made_num_blocks: the depth of MADE (for this problem 2 is enough)
+        :param num_mades      : the number of MADE networks in each IAF layer
+        :param rotations      : Do we want to rotate the parameters between the mades. This introduces hopfield like dependency in the network
+        :param K              : number of knots for the spline
+        :param B              : boundary of the spline
+        '''
+        super().__init__()
+        if rotations and (num_mades%dim != 0):
+            raise ValueError("If using rotations then number of mades must be a multiple of the number of input dimensions. Input dimensions: {}, number of mades: {}".format(dim,num_mades))
+        self.dim = dim
+        self.context_dim = context_dim
+        self.net = nn.ModuleList()
+        for _ in range(num_mades-1):
+            self.net.append(MADE(features=dim,
+                                  hidden_features=hidden,
+                                  num_blocks=made_num_blocks,
+                                  context_features=context_dim,
+                                  output_multiplier=1,
+                                  activation=F.selu))
+
+        self.net.append(MADE(features=dim,
+                              hidden_features=hidden,
+                              num_blocks=made_num_blocks,
+                              context_features=context_dim,
+                              output_multiplier=3*K-1,
+                              activation=F.selu))
+
+```
