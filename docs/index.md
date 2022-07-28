@@ -732,5 +732,8 @@ fig = corner.corner(data=ss,
                         hist_kwargs=dict(density=True),
                         range=dom)
 ```
+![solve](https://github.com/mtsatsev/Thesis/blob/f19813b11e7d9a2cc62c7761fecfe2de0599bea1/docs/3layerssolve.png)
+
 
 This concludes the toy problem. For Gravitational Waves take a look at the [gwave][folder].  
+
