@@ -40,9 +40,9 @@ However, this computation requires the evaluation of the likelihood $p(S|\xi)$. 
 # Sinusoidal Waves data.
 
 Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal
-$$S(t) = A \sin(2\pi f t + \varphi) + U(t)$$
+$S(t) = A \sin(2\pi f t + \varphi) + U(t),$
 
-, we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
+we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
 
 The parameters have the following properties:
 
@@ -107,11 +107,11 @@ Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in 
 
 $$
 \begin{align}
-a &= (y_{i+1}s_i - y_{i+1}\delta_i - y_is_i + y_i\delta_i) + (-y_i\delta_i -y_i\delta_{i+1} + 2y_is_i +\text{y}\delta_i + \text{y}\delta_{i+1} - 2\text{y}s_i)
-&=(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],
-b &= (y_{i+1}\delta_i + y_i \delta_i) + (y_i\delta_i + y_i\delta_{i+1}-2y_is_i - \text{y}\delta_i - \text{y}\delta_{i+1} + \text{y}2s_i)
-&= (y_{i+1} - y-i) \delta_i + (y_i - \text{y})\Big[ \delta_i + \delta_{i+1} + 2s_i\Big]
-&= (y_{i+1} - y-i) \delta_i - (\text{y}-y_i)\Big[ \delta_i + \delta_{i+1} + 2s_i\Big],
+a &= (y_{i+1}s_i - y_{i+1}\delta_i - y_is_i + y_i\delta_i) + (-y_i\delta_i -y_i\delta_{i+1} + 2y_is_i +\text{y}\delta_i + \text{y}\delta_{i+1} - 2\text{y}s_i)\\
+&=(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],\\
+b &= (y_{i+1}\delta_i + y_i \delta_i) + (y_i\delta_i + y_i\delta_{i+1}-2y_is_i - \text{y}\delta_i - \text{y}\delta_{i+1} + \text{y}2s_i)\\
+&= (y_{i+1} - y-i) \delta_i + (y_i - \text{y})\Big[ \delta_i + \delta_{i+1} + 2s_i\Big]\\
+&= (y_{i+1} - y-i) \delta_i - (\text{y}-y_i)\Big[ \delta_i + \delta_{i+1} + 2s_i\Big],\\
 c &= y_is_i - \text{y}s_i = -s_i(\text{y}-y_i)
 \end{align}
 $$
