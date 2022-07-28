@@ -101,7 +101,7 @@ plt.show()
 
 # Spline transform
 
-Based on ``Algorithm 1 in the Thesis Rational Quadratic Spline for input x and context h``
+Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in the Thesis
 
 To implement the transform we create a class for it. 
 
