@@ -102,7 +102,7 @@ plt.show()
 Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in the Thesis
 
 
-## Important Equations 
+## Important Equations
 
 $$
 \begin{align}
@@ -119,15 +119,15 @@ $$
 
 
 
-To implement the transform we create a class for it. 
+To implement the transform we create a class for it.
 
 The skeleton structure of the class looks as follows:
 
 ```python
-splineShared = collections.namedtuple('splineShared','x_k,y_k,delta_k,delta_kp1,w_k,h_k,s_k')
+splineShared = collections.namedtuple('splineShared','x_i,y_i,delta_i,delta_ip1,w_i,h_i,s_i')
 
 class RationalQuadraticSpline():
-  
+
     def __init__(self,W,H,D,bounds):
         self.W = W
         self.H = H
@@ -156,12 +156,12 @@ class RationalQuadraticSpline():
         pass
 ```
 
-We can observe that forward(Equation 2), backward(Eqations 4, 5, 6, 7) and derivative(Equation 3) computations all use the same parameters $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1},s_i,w_i,h_i$ and therefor we consider them to be shared variables and we construct them in a different function ``compute_shared``. 
+We can observe that forward(Equation 2), backward(Eqations 4, 5, 6, 7) and derivative(Equation 3) computations all use the same parameters $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1},s_i,w_i,h_i$ and therefor we consider them to be shared variables and we construct them in a different function ``compute_shared``.
 
 The implementation of ``compute_shared`` represents the whole algorithm from splitting $\theta$ to gathering the variables. To do that we need 3 additional functions:
-1. We see that $\theta^W$ and $\theta^H$ that are treated as the unnormalized widths and heights undergo the same normalization to obtain the widths and heights. So we can use a function to represent that update, although, this is not necessary it shortens the code base. The function is called ``update_WH``. 
-2. We need a function to search in knots (widths and heights). In section (3.3.1) a formula is presented which acts like a drop in replacement for binary search. The formula is $\mathbf{P}_{\mathbf{x}_n} = (\sum \mathbf{x}_n \geq \mathbf{X}_n+\epsilon) - 1$ implemented in ``search_knot``. 
-3. We need a function to gather from the widths, heights and derivatives. Pytorch already has ``.gather`` function implemented for its tensors. 
+1. We see that $\theta^W$ and $\theta^H$ that are treated as the unnormalized widths and heights undergo the same normalization to obtain the widths and heights. So we can use a function to represent that update, although, this is not necessary it shortens the code base. The function is called ``update_WH``.
+2. We need a function to search in knots (widths and heights). In section (3.3.1) a formula is presented which acts like a drop in replacement for binary search. The formula is $\mathbf{P}_{\mathbf{x}_n} = (\sum \mathbf{x}_n \geq \mathbf{X}_n+\epsilon) - 1$ implemented in ``search_knot``.
+3. We need a function to gather from the widths, heights and derivatives. Pytorch already has ``.gather`` function implemented for its tensors.
 
 ```python
 
@@ -169,7 +169,7 @@ def update_WH(self,WH):
       '''Implementation 3. from the paper for a single theta^W or theta^H'''
 
       # Apply softmax
-      param = F.softmax(WH,dim=-1) 
+      param = F.softmax(WH,dim=-1)
 
       # This normalization is required
       param = 1e-3 + (1 - 1e-3 * WH.shape[-1]) * param
@@ -182,7 +182,7 @@ def update_WH(self,WH):
       cumulative_param = 2 * self.B * cumulative_param - self.B
       cumulative_param[...,0]  = -self.B
       cumulative_param[...,-1] =  self.B
-      
+
       return cumulative_param
 
 def search_knot(self,x,WH,eps=1e-6):
@@ -191,8 +191,8 @@ def search_knot(self,x,WH,eps=1e-6):
 ```
 
 The implementation of ``compute_shared`` goes in a few steps:
-1. Update all $\theta$'s. 
-2. Check if we need the forward or inverse function. 
+1. Update all $\theta$'s.
+2. Check if we need the forward or inverse function.
   * If forward search in the widths.
   * If inverse search in the heights.
 3. Gather $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1}$
@@ -220,10 +220,10 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
           knot_positions = self.search_inot(y,ys)[...,None]
 
       # Point 3
-      x_i   = xs[...,:-1].gather(-1,knot_positions)[...,0] 
+      x_i   = xs[...,:-1].gather(-1,knot_positions)[...,0]
       x_ip1 = xs[...,1:].gather(-1,knot_positions)[...,0]
 
-      y_i   = ys[...,:-1].gather(-1,knot_positions)[...,0] 
+      y_i   = ys[...,:-1].gather(-1,knot_positions)[...,0]
       y_ip1 = ys[...,1:].gather(-1,knot_positions)[...,0]
 
       delta_i   = derivatives.gather(-1,knot_positions)[...,0]
@@ -231,8 +231,8 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
 
       # Point 4
       w_i = (x_ip1 - x_i)
-      h_i = (y_ip1 - y_i) 
-      s_i = h_i / w_i 
+      h_i = (y_ip1 - y_i)
+      s_i = h_i / w_i
 
       # Point 5
       return splineShared(
@@ -247,7 +247,7 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
 ```
 
 Next, before we plug those values in the formulas of the equations, first we need to make sure that we only do that for values that fall within the range of the bounds ``B``.
- 
+
 ```python
 def forward(self,x):
 
@@ -255,7 +255,7 @@ def forward(self,x):
     z      = torch.zeros_like(x)
     logdet = torch.zeros_like(x)
 
-    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor. 
+    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor.
     inside_mask = (x >= -self.B) & (x <= self.B)
     outside_mask = ~inside_mask
 
@@ -266,7 +266,7 @@ def forward(self,x):
     # Perform computations inside the bounds
     inp = x[inside_mask]
     if torch.any(inside_mask):
-      
+
         # d: a palceholder for all variables
         d = self.compute_shared(x=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
 
@@ -291,7 +291,7 @@ def backward(self,z):
     x      = torch.zeros_like(z)
     logdet = torch.zeros_like(z)
 
-    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor. 
+    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor.
     inside_mask = (z >= -self.B) & (z <= self.B)
     outside_mask = ~inside_mask
 
@@ -305,7 +305,7 @@ def backward(self,z):
         # d: a placeholder for all variables
         d = self.compute_shared(y=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
 
-        
+
         input_term = (inp - d.y_i)
         delta_term = input_term * (d.delta_ip1 + d.delta_i - 2 * d.s_i)
 
@@ -319,7 +319,7 @@ def backward(self,z):
         discriminant = b.pow(2) - 4 * a * c
         discriminant[discriminant <= 0] = 0
 
-        # Equation 7. 
+        # Equation 7.
         phi = (2*c)/(-b - torch.sqrt(discriminant))
 
         # Sometimes it leaves the [0,1] range so we need to return it back.
@@ -337,8 +337,8 @@ Where the derivative for both forward and backward is
 ```python
 def derivative(self,d,phi):
     '''
-    :d  : placeholder for the values 
-    :phi: function of the input 
+    :d  : placeholder for the values
+    :phi: function of the input
     '''
     # Equation 2.30
     numerator = d.s_i.pow(2) * (
