@@ -1,6 +1,6 @@
 # Parameter inference of Sinusoidal Waves
     
- $\begin{tikzpicture}[scale=1.1]
+ $$\begin{tikzpicture}[scale=1.1]
  \tikzset{
         myarrow/.style={->, >=latex', thick},
         diamond/.style={rectangle,draw,scale=3,fill=Apricot,color=Apricot, fill opacity=0.4, thick},
@@ -50,61 +50,7 @@
     \draw [->](m) -| (t) {};
     
     
-    \end{tikzpicture}
-     }
-    \quad
-    \subfloat[\centering Inverse transform]
-     {
-    \begin{tikzpicture}[scale=1.1]
- 
- \tikzset{
-        myarrow/.style={->, >=latex', thick},
-        diamond/.style={rectangle,draw,scale=3,fill=Apricot,color=Apricot, fill opacity=0.4, thick},
-        data/.style={rectangle,draw,scale=3,fill=Salmon,color=Salmon, thick, fill opacity=0.4},
-        datan/.style={rectangle,draw,scale=3,fill=Magenta,color=Magenta, thick, fill opacity=0.4},
-        datau/.style={rectangle,draw,scale=3,color=Salmon, thick, fill opacity=0.4},
-        datac/.style={rectangle,draw,scale=3,fill=Cyan,color=Cyan, thick, fill opacity=0.4},
-        rec/.style={rectangle,draw,xscale=3,yscale=6,fill=Salmon,color=Salmon, thick, fill opacity=0.4},
-        recu/.style={rectangle,draw,xscale=3,yscale=6,color=Salmon, thick, fill opacity=0.4},
-        recc/.style={rectangle,draw,xscale=3,yscale=6,fill=Cyan,color=Cyan, thick, fill opacity=0.4},
-        function/.style={circle,draw,scale=3.0,fill=Goldenrod, opacity=0.6,thick}
-    }
-    
-    \draw (4,0) node[datau] (z1) {} (4,0) node {$z_1$};
-    \draw (4,0.7) node[datau] (z2) {} (4,0.7) node {$z_2$};
-    \draw (4,1.4) node[datau] (z3) {} (4,1.4) node {$z_3$};
-    \draw (4,2.45) node[recu] (z4) {} (4,2.45) node {$\vdots$};
-    \draw (4,3.5) node[datan] (z5) {} (4,3.5) node {$z_i$};
-    \draw (4,4.2) node[datau] (z6) {} (4,4.2) node {$z_{i+1}$};
-    \draw (4,5.25) node[recu] (X7) {} (4,5.25) node {$\vdots$};
-    \draw (4,6.3) node[datau] (X7) {} (4,6.3) node {$z_{D}$};
-    
-    \draw (0,0) node[datac] (X1) {} (0,0) node {$x_1$};
-    \draw (0,0.7) node[datac] (X2) {} (0,0.7) node {$x_2$};
-    \draw (0,1.4) node[datac] (X3) {} (0,1.4) node {$x_3$};
-    \draw (0,2.45) node[recc] (X4) {} (0,2.45) node {$\vdots$};
-    \draw (0,3.5) node[datan] (X5) {} (0,3.5) node {$x_i$};
-    \draw (0,4.2) node[datau] (X6) {} (0,4.2) node {$x_{i+1}$};
-    \draw (0,5.25) node[recu] (X7) {} (0,5.25) node {$\vdots$};
-    \draw (0,6.3) node[datau] (X7) {} (0,6.3) node {$x_{D}$};
-    
-    
-    \draw (1.4,1.9) node[datac] (c) {} (1.4,1.9) node {$f_m$}; 
-    \draw (1.4,0.9) node[datac] (m) {} (1.4,0.9) node {$f_s$}; 
-    %\draw (2,1.4) node[datac] (c) {} (2,1.4) node {$c_i$};
-    \draw (2.7,2.5) node (h) {$[\mu_i,\sigma_i]$};
-    \draw (2,3.5) node[diamond] (t) {} (2,3.5) node {$\tau^{-1}$}; 
-    
-    \draw (X1) -| (0.7,2.45) -| (X4){};
-    \draw [->](0.7,1.9) -- (c) {};
-    \draw [->](0.7,0.9) -- (m) {};
-
-    \draw[<-] (X5) -- (t) {};
-    \draw[<-] (t) -- (z5) {};
-    \draw [->](c) -| (t) {};
-    \draw [->](m) -| (t) {};
-    \end{tikzpicture}
- $$
+    \end{tikzpicture}$$
 # Introduction
 
 Here we will take a closer look at the technical implementation of an inverse autoregressive flow model with spline transformation for sampling based inference. In effect this closely follows the implementation of the algorithm used in my Thesis _Parameter Inference of Gravitational Waves using Inverse Autoregressive Spline Flow_, and produced the results in Appendix A.
