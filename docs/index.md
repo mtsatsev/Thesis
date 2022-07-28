@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import corner
 import numpy as np
 
+from IPython.core.pylabtools import figsize
 from nflows.transforms.made import MADE
 ```
 
@@ -507,7 +508,7 @@ def backward(self, x: Tensor, context: Tensor) -> [Tensor, Tensor]:
       return z, log_det
 ```
 
-Creating the whole flow is simply done by stacking a bunch of ``IAFBlock``s. 
+Creating the whole flow is simply done by stacking a bunch of ``IAFBlock``s.
 
 ```python
 
@@ -558,3 +559,178 @@ class IAF(nn.Module):
             log_det += ld.sum(dim=-1)
         return z, log_det
 ```
+
+With all components ready all we need to do is put it all together. If you want to run this experiment in colab/jupyter then read further if you want to run it locally then look at [swave](here)
+
+1. Start by preparing settings and hyperparameters for the model:
+
+```python
+device='cuda' if torch.cuda.is_available() else 'cpu'
+num_epochs  = 60
+trn_samples = 50000
+val_samples = 10000
+batch_size  = 128
+num_workers = 2
+n_samples   = 10000
+lr          = 1e-4
+hidden      = 128
+num_blocks  = 3
+context_dim = 24
+n_in = 3
+K=9
+B=6.5
+rotations=False
+rotations_made=True
+num_mades=3
+made_num_blocks=2
+ns=0.0
+```
+
+2. Sample train, validation and testing datasets:
+
+```python
+trn_data = SineWave(num_samples=trn_samples, noise_strength=ns,context=context_dim)
+val_data = SineWave(num_samples=val_samples, noise_strength=ns,context=context_dim)
+test_data= SineWave(num_samples=val_samples, noise_strength=ns,context=context_dim)
+
+trn_loader = DataLoader(trn_data, batch_size, num_workers=num_workers, pin_memory=True,drop_last=True)
+val_loader = DataLoader(val_data, batch_size, num_workers=num_workers, pin_memory=True)
+test_loader = DataLoader(test_data, batch_size, num_workers=num_workers, pin_memory=True)
+```
+
+3. Create the model
+
+```python
+model = IAF(num_blocks=num_blocks,
+            dim=n_in,
+            context_dim=context_dim,
+            hidden=hidden,
+            made_num_blocks=made_num_blocks,
+            num_mades=num_mades,
+            rotations=rotations,
+            rotations_made=rotations_made,
+            K=K,
+            B=B)
+model = model.to(device)
+```
+
+4. Set up optimizer and prior
+```python
+# Setup optimizer and scheduler
+opt = torch.optim.Adam(params=model.parameters(), lr=lr, amsgrad=True)
+shl = torch.optim.lr_scheduler.StepLR(opt, step_size=100, gamma=0.1)
+
+# Setup prior, we go for a Gaussian since it is simple
+prior = torch.distributions.MultivariateNormal(loc=torch.zeros(size=(n_in,)).to(device), covariance_matrix=torch.eye(n=n_in).to(device))
+```
+
+5. Start training and validate as the model train. The model is not saved at the end of training in this example.
+
+```python
+trn_losses = []
+  val_losses = []
+  lowest_loss = 0
+
+  for epoch in range(args.num_epochs):
+      # Loss setup
+      trn_loss = 0
+      val_loss = 0
+      print("epoch: ",epoch)
+      model.train(True)
+      # Loading of the data
+      loop = tqdm(trn_loader)
+      loop.set_description(f"Training")
+      for strain, para in loop:
+
+          # Prepare the input and context
+          x       = para.to(device)
+          context = strain.to(device)
+          opt.zero_grad()
+
+          # Forward propagation
+          z, log_det    = model.forward(x, context)
+
+          prior_logprob = prior.log_prob(z)
+          loss = -torch.mean(prior_logprob + log_det)
+
+          # Backpropagation
+          loss.backward()
+          opt.step()
+
+          # Update metrics
+          trn_loss += (loss.item() * x.shape[0]) / len(trn_loader.dataset)
+      print("training loss: ", trn_loss)
+      # Validation
+
+      with torch.no_grad():
+          model.train(False)
+          for (strain, para) in val_loader:
+
+              # Prepare the input and context
+              x       = para.to(device)
+              context = strain.to(device)
+              opt.zero_grad()
+
+              z, log_det = model.forward(x, context)
+              prior_logprob = prior.log_prob(z)
+              loss = -torch.mean(prior_logprob + log_det)
+
+              # Update Metrics
+              val_loss += (loss.item() * x.shape[0]) / len(val_loader.dataset)
+
+      print("validation loss",val_loss)
+      trn_losses.append(trn_loss)
+      val_losses.append(val_loss)
+
+      # Update the scheduler
+      shl.step()
+```
+
+After training you can visualize the loss
+
+```python
+fig,ax = plt.subplots(1,1,figsize=(12,8))
+ax.plot(line,trn)
+ax.plot(line,val)
+ax.set_xlabel("Epochs")
+ax.set_ylabel('Loss')
+ax.set_title("Training loss")
+ax.legend(['Train loss', 'Validation loss'],prop={'size': 25})
+plt.show()
+```
+To test the performance of the network we can visualize the posterior that it createse for ``n_samples``
+
+```python
+with torch.no_grad():
+    model.train(False)
+    for context, x in test_loader:
+        context = context.to(device)
+        x = x.to(device)
+        opt.zero_grad()
+        #We now go from prior to posterior instead of the other way around, to keep it simple we only do it for a single context vector
+        z = prior.sample([n_samples])
+        context = torch.cat(n_samples * [context[0:1]])
+        x_estimated, _ = model.backward(z, context)
+        break
+
+ss = x_estimated.cpu().detach().numpy()
+xx = x.cpu().detach().numpy()
+
+# You are free to play around with the numbers used here for the quantiles, levels etc.
+dom = [[0,1],[0,1],[0,6.5]]
+fig = corner.corner(data=ss,
+                        truths=(xx[-0]),
+                        labels=['ampli', 'frequency', 'phase'],
+                        bins=50,
+                        smooth=0.9,
+                        color='tab:blue',
+                        truth_color='#FF8C00',
+                        quantiles=[0.39, 0.86, 0.98],
+                        levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2)),
+                        plot_density=True,
+                        fill_contours=True,
+                        hist_kwargs=dict(density=True),
+                        range=dom)
+```
+
+This concludes the toy problem. For Gravitational Waves take a look at the [gwave][folder].  
