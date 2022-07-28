@@ -107,7 +107,6 @@ Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in 
 
 $$
 \begin{align}
-\begin{align}
 \frac{\alpha_i(\phi(\text{x}))}{\beta_i(\phi(\text{x}))}&= y_i + \frac{(y_{i+1} - y_i)\Big[ s_i\phi^2 + \delta_i \phi(1-\phi) \Big]}{s_i + \Big[ \delta_i + \delta_{i+1} - 2s_i \Big]\phi(1-\phi)}\\
 \frac{d}{d\text{x}}\Big[ \frac{\alpha_i(\phi(\text{x})}{\beta_i(\phi(\text{x})} \Big]&=w_is_i^2 \Big[ \delta_{i+1}\phi^2 + 2s_i\phi(1-\phi) + \delta_i(1-\phi)^2 \Big]\\
 a &=(y_{i+1}-y_i)\Big[s_i - \delta_i\Big] + (\text{y}-y_i)\Big[ \delta_{i+1} + \delta_i - 2s_i \Big],\\
