@@ -1,5 +1,5 @@
 # Parameter inference of Sinusoidal Waves
- 
+
 # Introduction
 
 Here we will take a closer look at the technical implementation of an inverse autoregressive flow model with spline transformation for sampling based inference. In effect this closely follows the implementation of the algorithm used in my Thesis _Parameter Inference of Gravitational Waves using Inverse Autoregressive Spline Flow_, and produced the results in Appendix A.
@@ -354,8 +354,11 @@ def derivative(self,d,phi):
 
 ```
 
+Full code can be seen at [RationalQuadraticSpline](https://github.com/mtsatsev/Thesis)
+
 # Inverse Autoregressive Flow
-![docs/IAF.jpg](https://github.com/mtsatsev/Thesis/blob/main/docs/IAF.png))
+
+![docs/IAF.jpg](https://github.com/mtsatsev/Thesis/blob/main/docs/IAF.png)
 
 
 A normalizing flow is a transformation from a normal distribution to some complex distribution where this is allowed given the change of variables formula.
@@ -372,12 +375,13 @@ Normalizing flows must be:
 3. Easy to calculate the determinant(Autoregressive).
 
 
-An inverse autoregressive layer consists of a list of autoregressive networks (MADE) which we take from the nflows library [nflows](https://github.com/bayesiains/nflows/blob/master/nflows/transforms/made.py) that produces autoregressive parameters $\theta$ based on the prior distribution, which we denote as X and uses those parameters to transform them to the posterior, denoted z during sampling and from z to x during training. The prior is a three-dimensional Gaussian $\mathcal{N}(0:1)^3$.
+An inverse autoregressive layer consists of a list of autoregressive networks (MADE) which we take from the nflows library [nflows](https://github.com/bayesiains/nflows/blob/master/nflows/transforms/made.py) that produces autoregressive parameters $\theta$ based on the prior distribution, which we denote as X and uses those parameters to transform them to the posterior, denoted Z during sampling and from z to x during training.
 
+1. The prior is a three-dimensional Gaussian $\mathcal{N}(0:1)^3$.
 
-The reason why we want a list of autoregressive networks is because we might want to permute the parameters $\xi$, each with its own dedicated MADE network, between which the features are permuted to ensure full dependence of every feature on all others.
+2. The reason why we want a list of autoregressive networks is because we might want to permute the parameters $\xi$, each with its own dedicated MADE network, between which the features are permuted to ensure full dependence of every feature on all others.
 
-To implement the splines the output of the last MADE has to be 3 * the number of knots - 1.
+We begin with a skeleton implementation of a single layer:
 
 ```python
 class IAFBlock(nn.Module):
@@ -397,22 +401,163 @@ class IAFBlock(nn.Module):
         super().__init__()
         if rotations and (num_mades%dim != 0):
             raise ValueError("If using rotations then number of mades must be a multiple of the number of input dimensions. Input dimensions: {}, number of mades: {}".format(dim,num_mades))
-        self.dim = dim
-        self.context_dim = context_dim
-        self.net = nn.ModuleList()
-        for _ in range(num_mades-1):
-            self.net.append(MADE(features=dim,
-                                  hidden_features=hidden,
-                                  num_blocks=made_num_blocks,
-                                  context_features=context_dim,
-                                  output_multiplier=1,
-                                  activation=F.selu))
 
-        self.net.append(MADE(features=dim,
-                              hidden_features=hidden,
-                              num_blocks=made_num_blocks,
-                              context_features=context_dim,
-                              output_multiplier=3*K-1,
-                              activation=F.selu))
+    def forward(self, x: Tensor, context: Tensor):
+        pass
+    def Backward(self, z: Tensor, context: Tensor):
+        pass
+```
 
+If we want to use permutations it only makes sense to use the same amount of MADEs as the number of dimensions.
+
+To implement the splines the output of the last MADE has to be 3 * the number of knots - 1. The rest of the MADEs will have output dimensions equal to the input dimensions. In cases where we set num_mades=1 we basically have no permutaions.
+
+```python
+    def __init__(self, dim: int, context_dim: int, hidden: int, made_num_blocks: int, num_mades: int, rotations: bool , K: int, B: int):
+        '''
+        :param dim            : input dimensions. In this case these are the A,f,phi therefor dim = 3
+        :param context dim    : corresponds to the length of the wave
+        :param hidden         : the number of hidden neurons in the residual blocks in MADE
+        :param made_num_blocks: the depth of MADE (for this problem 2 is enough)
+        :param num_mades      : the number of MADE networks in each IAF layer
+        :param rotations      : Do we want to rotate the parameters between the mades. This introduces hopfield like dependency in the network
+        :param K              : number of knots for the spline
+        :param B              : boundary of the spline
+        '''
+        super().__init__()
+        if rotations and (num_mades%dim != 0):
+            raise ValueError("If using rotations then number of mades must be a multiple of the number of input dimensions. Input dimensions: {}, number of mades: {}".format(dim,num_mades))
+            self.dim = dim
+                self.context_dim = context_dim
+                self.net = nn.ModuleList()
+                for m in range(num_mades-1):
+                    self.net.append(MADE(features=dim,
+                                         hidden_features=hidden,
+                                         num_blocks=made_num_blocks,
+                                         context_features=context_dim,
+                                         output_multiplier=1,
+                                         activation=F.selu))
+
+                self.net.append(MADE(features=dim,
+                                    hidden_features=hidden,
+                                    num_blocks=made_num_blocks,
+                                    context_features=context_dim,
+                                    output_multiplier=3*K-1,
+                                    activation=F.selu))
+
+                theta = self.net[-1](torch.zeros(dim),torch.zeros(context_dim)).reshape(-1,dim,3*K-1)
+                W,H,D = torch.chunk(theta,3,dim=-1)
+                self.spline = RationalQuadraticSpline(W,H,D,B)
+                self.K = K
+                self.B = B
+                self.rotations = rotations
+```
+
+For the forward pass we have:
+
+```python
+def forward(self, x: Tensor, context: Tensor) -> [Tensor,Tensor]:
+    """ Sequential, used during training """
+
+    # Create the log determinant and the posterior
+    x = torch.zeros_like(z)
+    log_det = torch.zeros(z.shape[0]).to(z)
+
+    # Complete the autoregressive series...
+    for i in range(self.dim):
+        # construct theta, condition NOT on the posterior
+        made_out = x.clone()
+        for idx,made in enumerate(self.net):
+            if self.rotations:
+                made_out = made(made_out.roll(-1,1),context)#.
+            else:
+                made_out = made(made_out,context)
+
+        theta = made_out.reshape(-1,self.dim,self.K*3-1)
+
+        # Create the splines
+        self.spline.set_theta(theta)
+
+        # forward function during training
+        x, log_det = self.spline.forward(z)
+    return x, log_det
+```
+
+And backward:
+
+
+```python
+def backward(self, x: Tensor, context: Tensor) -> [Tensor, Tensor]:
+      """ Parallel, used for sampling """
+
+      # Create thata, condition on the prior
+      made_out = x.clone()
+      for idx,made in enumerate(self.net):
+          if self.rotations:
+              made_out = made(made_out.roll(-1,1),context)#.
+          else:
+              made_out = made(made_out,context)
+      theta = made_out.reshape(-1,self.dim,self.K*3-1)
+
+      # Create the splines
+      self.spline.set_theta(theta)
+
+      # inverse function during sampling
+      z,log_det = self.spline.backward(x)
+      return z, log_det
+```
+
+Creating the whole flow is simply done by stacking a bunch of ``IAFBlock``s. 
+
+```python
+
+class IAF(nn.Module):
+    """ Inverse autoregressive Flows, mostly a wrapper to put multiple IAF Blocks on top of each other """
+
+    def __init__(self, num_blocks: int, dim: int, context_dim: int, hidden: int, made_num_blocks: int, num_mades: int, rotations: bool, K: int, B: int):
+        '''
+        :param num_block      : number of IAFblock layers
+        :param dim            : number of input dimensions   (3 parameters)
+        :param context_dim    : number of context dimensions (24 time steps)
+        :param hidden         : number of neurons in the hidden layers of MADE
+        :param made_num_blocks: depth of each made
+        :param rotations      : do we want permutaions or not
+        :param K              : number of knots
+        :param B              : boudary of the spline
+        '''
+        super().__init__()
+
+        if rotations and (num_blocks%dim != 0):
+            raise ValueError("The number of mades or the number of blocks must be a multiple of the input dimensions dim is: {} but num_blocks is: {}".format(dim,num_blocks))
+
+        # Setup flows
+        flows = []
+        print(rotations_made)
+        for i in range(num_blocks):
+            block = IAFBlock(dim=dim,
+                             context_dim=context_dim,
+                             hidden=hidden,
+                             made_num_blocks=made_num_blocks,
+                             num_mades=num_mades,
+                             rotations=rotations,
+                             K=K,
+                             B=B)
+            flows.append(block)
+        self.flows = nn.ModuleList(flows)
+
+    def forward(self, x, context):
+        """ Forward pass, SLOW!!! """
+        log_det = torch.zeros(x.shape[0]).to(x)
+        for flow in self.flows:
+            x, ld = flow.forward(x, context)
+            log_det += ld.sum(dim=-1)
+        return x, log_det
+
+    def backward(self, z, context):
+        """ Backward pass, FAST """
+        log_det = torch.zeros(z.shape[0]).to(z)
+        for flow in self.flows[::-1]:
+            z, ld = flow.backward(z, context)
+            log_det += ld.sum(dim=-1)
+        return z, log_det
 ```
