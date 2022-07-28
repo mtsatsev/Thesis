@@ -358,7 +358,7 @@ Full code can be seen at [RationalQuadraticSpline](https://github.com/mtsatsev/T
 
 # Inverse Autoregressive Flow
 
-![docs/IAF.jpg](https://github.com/mtsatsev/Thesis/blob/main/docs/IAF.png)
+![docs/IAF.jpg](https://github.com/mtsatsev/Thesis/blob/main/docs/IAF.png?style=centerme)
 
 
 A normalizing flow is a transformation from a normal distribution to some complex distribution where this is allowed given the change of variables formula.
