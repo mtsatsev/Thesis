@@ -368,7 +368,7 @@ It can sample $\mathbf{z} = f_{\theta}(\mathbf{x})$ and evaluation densities
 
 $$p_{\theta}(\mathbf{z}) = p_x(\mathbf{x}) |det(\frac{\partial \mathbf{x}}{\mathbf{z}})|$$
 
-, where $p_{\theta}$ is the posterior distribution, $p_x$ the normal distribution and $|det(\frac{\partial \mathbf{x}}{\mathbf{z}})|$.
+, where $p_{\theta}$ is the posterior distribution, $p_x$ the normal distribution and $|det(\frac{\partial \mathbf{x}}{\mathbf{z}})|$ is the absolute values of the determinant.
 
 Normalizing flows must be:
 1. Invertible.
