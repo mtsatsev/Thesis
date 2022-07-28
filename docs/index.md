@@ -230,8 +230,114 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
       )
 ```
 
+Next, before we plug those values in the formulas of the equations, first we need to make sure that we only do that for values that fall within the range of the bounds ``B``.
  
+```python
+def forward(self,x):
 
+    # Transformations and piecewise so dimensions are identical in this case that would be [batch_size,3]
+    z      = torch.zeros_like(x)
+    logdet = torch.zeros_like(x)
+
+    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor. 
+    inside_mask = (x >= -self.B) & (x <= self.B)
+    outside_mask = ~inside_mask
+
+    # Copy the outside values and set their derivative to 0
+    z[outside_mask] = x[outside_mask]
+    logdet[outside_mask] = 0
+
+    # Perform computations inside the bounds
+    inp = x[inside_mask]
+    if torch.any(inside_mask):
+      
+        # d: a palceholder for all variables
+        d = self.compute_shared(x=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
+
+        # Equation 2.20
+        phi = (inp - d.x_k) / d.w_k
+
+        # Equation 2.25
+        z[inside_mask] = (
+        d.y_k + (d.h_k * (d.s_k * phi.pow(2) + d.delta_k * phi*(1-phi) )) /
+                (d.s_k + (d.delta_kp1 + d.delta_k - 2 * d.s_k) * phi*(1-phi))
+        )
+        logdet[inside_mask] = self.derivative(d,phi)
+    return z,logdet
+```
+
+And the inverse:
+
+```python
+
+def backward(self,z):
+
+    # Transformations and piecewise so dimensions are identical in this case that would be [batch_size,3]
+    x      = torch.zeros_like(z)
+    logdet = torch.zeros_like(z)
+
+    # To ensure that values outside the bound are unchange, we mask those values with a binary tensor. 
+    inside_mask = (z >= -self.B) & (z <= self.B)
+    outside_mask = ~inside_mask
+
+    # Copy the outside values and set their derivative to 0
+    x[outside_mask] = z[outside_mask]
+    logdet[outside_mask] = 0
+
+    # Perform computations inside the bounds
+    inp    = z[inside_mask]
+    if torch.any(inside_mask):
+        # d: a placeholder for all variables
+        d = self.compute_shared(y=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
+
+        
+        input_term = (inp - d.y_k)
+        delta_term = input_term * (d.delta_kp1 + d.delta_k - 2 * d.s_k)
+
+        # Equation 2.34
+        a = d.h_k * (d.s_k - d.delta_k) + delta_term
+        # Equation 2.35
+        b = d.h_k * d.delta_k - delta_term
+        # Equation 2.36
+        c = -d.s_k * input_term
+
+        discriminant = b.pow(2) - 4 * a * c
+        discriminant[discriminant <= 0] = 0
+
+        # Equation 2.33. 
+        phi = (2*c)/(-b - torch.sqrt(discriminant))
+
+        # Sometimes it leaves the [0,1] range so we need to return it back.
+        phi[phi>=1] = 1 - 1e-6
+        phi[phi<=0] = 0 + 1e-6
+
+        # Transform
+        x[inside_mask] = phi * d.w_k + d.x_k
+        logdet[inside_mask] = self.derivative(d,phi)
+    return x,-logdet
+```
+
+Where the derivative for both forward and backward is
+
+```python
+def derivative(self,d,phi):
+    '''
+    :d  : placeholder for the values 
+    :phi: function of the input 
+    '''
+    # Equation 2.30
+    numerator = d.s_k.pow(2) * (
+        d.delta_kp1 * phi.pow(2)
+        + 2 * d.s_k * phi*(1-phi)
+        + d.delta_k  * (1-phi).pow(2)
+    )
+    denominator = d.s_k  + (
+        (d.delta_k + d.delta_kp1 - 2 * d.s_k)
+        * phi*(1-phi)
+    )
+    return torch.log(numerator) - 2 * torch.log(denominator)
+
+```
 
 # Inverse Autoregressive Flow
 
