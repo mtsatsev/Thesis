@@ -99,6 +99,46 @@ for (S,xi) in trn_data:
 plt.show()
 ```
 
+# Spline trasnfrom
+
+
+$$
+\begin{algorithm}
+\caption{Rational Quadratic Spline for input \textbf{x} and context \textbf{h}}\label{alg:splinealg}
+\begin{algorithmic}
+\State $\theta = \mathcal{NN}(\mathbf{x,h})$
+\State $[\theta^W,\theta^H,\theta^D] = \theta$ \Comment{Split}
+\State \textbf{W} = [\textbf{0}, softmax($\theta^W$)] \Comment{Pad with \textbf{0} vector}
+\State \textbf{H} = [\textbf{0}, softmax($\theta^H$)] \Comment{Pad with \textbf{0} vector}
+\For {i in \textbf{W} and \textbf{H}}
+    \State \textbf{X}$_i$ = $\sum^i_{k=1}\mathbf{W}_k$ \Comment{Cumulative sum}
+    \State \textbf{Y}$_i$ = $\sum^i_{k=1}\mathbf{H}_k$ \Comment{Cumulative sum}
+\EndFor
+\State $\mathbf{X}$ = 2 $\cdot$ B $\cdot \mathbf{X} - B$
+\State $\mathbf{Y}$ = 2 $\cdot$ B $\cdot \mathbf{Y} - B$
+\State \textbf{D} = softplus([\textbf{C},$\theta^D$,\textbf{C}]) \Comment{Pad with C=$\log(e^{1-1e-3}-1)$}
+\If { forward }
+\State \textbf{P} = Search(\textbf{x},\textbf{X})
+\Else 
+\State \textbf{P} = Search(\textbf{x},\textbf{Y})
+\EndIf
+\State $x_i,x_{i+1}$ = Gather(\textbf{X},\textbf{P}) \Comment{Search the \textit{x} values}
+\State $y_i,y_{i+1}$ = Gather(\textbf{Y},\textbf{P}) \Comment{Search the \textit{y} values}
+\State $\delta_i,\delta_{i+1}$ = Gather(\textbf{D},\textbf{P}) \Comment{Search the $\delta$ values}
+\If{ forward }
+    \State $\mathbf{z} = y_i + \mathlarger{\frac{(y_{i+1} - y_i)\Big[ s_i\phi^2 + \delta_i \phi(1-\phi) \Big]}{s_i + \Big[ \delta_i + \delta_{i+1} - 2s_i \Big]\phi(1-\phi)}}$ \Comment{Equations 2.25, 2.18, 2.19}
+    \State  $ \mathbf{J}_f =  \log(s_i^2\Big[\delta_{i+1} \phi^2 + 2s_i\phi(1-\phi) + \delta_i(1-\phi)^2 \Big]) - 2 * \log(\Big[ \beta_i(\phi)\Big])$
+\Else
+    \State  $\mathbf{z} = \mathlarger{\frac{2c}{-b-\sqrt{b^2-4ac}}w_i +x_i}$ \Comment{Equations 2.33, 2.34, 2.35, 2.36}
+    
+    \State  $ \mathbf{J}_f =  -\log(s_i^2\Big[\delta_{i+1} \phi^2 + 2s_i\phi(1-\phi) + \delta_i(1-\phi)^2 \Big]) - 2 * \log(\Big[ \beta_i(\phi)\Big])$
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+$$
+
+
+
 # Inverse Autoregressive Flow
 
 A normalizing flow is a transformation from a normal distribution to some complex distribution where this is allowed given the change of variables formula.
