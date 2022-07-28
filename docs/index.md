@@ -39,9 +39,7 @@ However, this computation requires the evaluation of the likelihood $p(S|\xi)$. 
 
 # Sinusoidal Waves data.
 
-Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal
-$S(t) = A \sin(2\pi f t + \varphi) + U(t),$
-
+Given a set of parameters $\xi = \{A, f, \varphi\}$ and a signal $S(t) = A \sin(2\pi f t + \varphi) + U(t)$,
 we can simulate our dataset as a pair of parameters and signal $\{(\xi,S)_i\}$ for any number of times.
 
 The parameters have the following properties:
@@ -103,6 +101,7 @@ plt.show()
 
 Based on ``Algorithm 1 Rational Quadratic Spline for input x and context h`` in the Thesis
 
+
 ## Important Equations 
 
 $$
@@ -116,6 +115,8 @@ c &= y_is_i - \text{y}s_i = -s_i(\text{y}-y_i) && (6)\\
 \phi(\text{x}) &= \frac{2c}{-b-\sqrt{b^2-4ac}} && (7)
 \end{align}
 $$
+
+
 
 
 To implement the transform we create a class for it. 
@@ -155,11 +156,11 @@ class RationalQuadraticSpline():
         pass
 ```
 
-We can observe that forward(Equation 2.25), backward(Eqations 2.33, 2.34, 2.35, 2.36) and derivative(Equation 2.30) computations all use the same parameters $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1},s_i,w_i,h_i$ and therefor we consider them to be shared variables and we construct them in a different function ``compute_shared``. 
+We can observe that forward(Equation 2), backward(Eqations 4, 5, 6, 7) and derivative(Equation 3) computations all use the same parameters $x_i,x_{i+1},y_i,y_{i+1},\delta_i,\delta_{i+1},s_i,w_i,h_i$ and therefor we consider them to be shared variables and we construct them in a different function ``compute_shared``. 
 
 The implementation of ``compute_shared`` represents the whole algorithm from splitting $\theta$ to gathering the variables. To do that we need 3 additional functions:
 1. We see that $\theta^W$ and $\theta^H$ that are treated as the unnormalized widths and heights undergo the same normalization to obtain the widths and heights. So we can use a function to represent that update, although, this is not necessary it shortens the code base. The function is called ``update_WH``. 
-2. We need a function to search in knots (widths and heights). In section (3.3.1) a formula is presented which acts like a drop in replacement for binary search ``search_knot``. 
+2. We need a function to search in knots (widths and heights). In section (3.3.1) a formula is presented which acts like a drop in replacement for binary search. The formula is $\mathbf{P}_{\mathbf{x}_n} = (\sum \mathbf{x}_n \geq \mathbf{X}_n+\epsilon) - 1$ implemented in ``search_knot``. 
 3. We need a function to gather from the widths, heights and derivatives. Pytorch already has ``.gather`` function implemented for its tensors. 
 
 ```python
@@ -205,7 +206,7 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
       # Check if we need to search in the widths or heights
       is_x = (x is not None)
 
-      # Update theta^W and theta^H to obtain {x,y}_k
+      # Update theta^W and theta^H to obtain {x,y}_i
       xs = self.update_WH(W)
       ys = self.update_WH(H)
 
@@ -214,34 +215,34 @@ def compute_shared(self,x=None,y=None,W=None,H=None,D=None):
 
       # Search in the widths or the heights
       if is_x:
-          knot_positions = self.search_knot(x,xs)[...,None]
+          knot_positions = self.search_inot(x,xs)[...,None]
       else:
-          knot_positions = self.search_knot(y,ys)[...,None]
+          knot_positions = self.search_inot(y,ys)[...,None]
 
       # Point 3
-      x_k   = xs[...,:-1].gather(-1,knot_positions)[...,0] 
-      x_kp1 = xs[...,1:].gather(-1,knot_positions)[...,0]
+      x_i   = xs[...,:-1].gather(-1,knot_positions)[...,0] 
+      x_ip1 = xs[...,1:].gather(-1,knot_positions)[...,0]
 
-      y_k   = ys[...,:-1].gather(-1,knot_positions)[...,0] 
-      y_kp1 = ys[...,1:].gather(-1,knot_positions)[...,0]
+      y_i   = ys[...,:-1].gather(-1,knot_positions)[...,0] 
+      y_ip1 = ys[...,1:].gather(-1,knot_positions)[...,0]
 
-      delta_k   = derivatives.gather(-1,knot_positions)[...,0]
-      delta_kp1 = derivatives[...,1:].gather(-1,knot_positions)[...,0]
+      delta_i   = derivatives.gather(-1,knot_positions)[...,0]
+      delta_ip1 = derivatives[...,1:].gather(-1,knot_positions)[...,0]
 
       # Point 4
-      w_k = (x_kp1 - x_k) #input_bin_widths = widths.gather
-      h_k = (y_kp1 - y_k) #input_heights
-      s_k = h_k / w_k # input_delta = (heights/widths).gather
+      w_i = (x_ip1 - x_i)
+      h_i = (y_ip1 - y_i) 
+      s_i = h_i / w_i 
 
       # Point 5
       return splineShared(
-          x_k=x_k,
-          y_k=y_k,
-          delta_k=delta_k,
-          delta_kp1=delta_kp1,
-          w_k=w_k,
-          h_k=h_k,
-          s_k=s_k
+          x_i=x_i,
+          y_i=y_i,
+          delta_i=delta_i,
+          delta_ip1=delta_ip1,
+          w_i=w_i,
+          h_i=h_i,
+          s_i=s_i
       )
 ```
 
@@ -269,13 +270,13 @@ def forward(self,x):
         # d: a palceholder for all variables
         d = self.compute_shared(x=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
 
-        # Equation 2.20
-        phi = (inp - d.x_k) / d.w_k
+        # Equation 1
+        phi = (inp - d.x_i) / d.w_i
 
-        # Equation 2.25
+        # Equation 2
         z[inside_mask] = (
-        d.y_k + (d.h_k * (d.s_k * phi.pow(2) + d.delta_k * phi*(1-phi) )) /
-                (d.s_k + (d.delta_kp1 + d.delta_k - 2 * d.s_k) * phi*(1-phi))
+        d.y_i + (d.h_i * (d.s_i * phi.pow(2) + d.delta_i * phi*(1-phi) )) /
+                (d.s_i + (d.delta_ip1 + d.delta_i - 2 * d.s_i) * phi*(1-phi))
         )
         logdet[inside_mask] = self.derivative(d,phi)
     return z,logdet
@@ -284,7 +285,6 @@ def forward(self,x):
 And the inverse:
 
 ```python
-
 def backward(self,z):
 
     # Transformations and piecewise so dimensions are identical in this case that would be [batch_size,3]
@@ -306,20 +306,20 @@ def backward(self,z):
         d = self.compute_shared(y=inp,W=self.W[inside_mask,:],H=self.H[inside_mask,:],D=self.D[inside_mask,:])
 
         
-        input_term = (inp - d.y_k)
-        delta_term = input_term * (d.delta_kp1 + d.delta_k - 2 * d.s_k)
+        input_term = (inp - d.y_i)
+        delta_term = input_term * (d.delta_ip1 + d.delta_i - 2 * d.s_i)
 
-        # Equation 2.34
-        a = d.h_k * (d.s_k - d.delta_k) + delta_term
-        # Equation 2.35
-        b = d.h_k * d.delta_k - delta_term
-        # Equation 2.36
-        c = -d.s_k * input_term
+        # Equation 4
+        a = d.h_i * (d.s_i - d.delta_i) + delta_term
+        # Equation 5
+        b = d.h_i * d.delta_i - delta_term
+        # Equation 6
+        c = -d.s_i * input_term
 
         discriminant = b.pow(2) - 4 * a * c
         discriminant[discriminant <= 0] = 0
 
-        # Equation 2.33. 
+        # Equation 7. 
         phi = (2*c)/(-b - torch.sqrt(discriminant))
 
         # Sometimes it leaves the [0,1] range so we need to return it back.
@@ -327,7 +327,7 @@ def backward(self,z):
         phi[phi<=0] = 0 + 1e-6
 
         # Transform
-        x[inside_mask] = phi * d.w_k + d.x_k
+        x[inside_mask] = phi * d.w_i + d.x_i
         logdet[inside_mask] = self.derivative(d,phi)
     return x,-logdet
 ```
@@ -341,13 +341,13 @@ def derivative(self,d,phi):
     :phi: function of the input 
     '''
     # Equation 2.30
-    numerator = d.s_k.pow(2) * (
-        d.delta_kp1 * phi.pow(2)
-        + 2 * d.s_k * phi*(1-phi)
-        + d.delta_k  * (1-phi).pow(2)
+    numerator = d.s_i.pow(2) * (
+        d.delta_ip1 * phi.pow(2)
+        + 2 * d.s_i * phi*(1-phi)
+        + d.delta_i  * (1-phi).pow(2)
     )
-    denominator = d.s_k  + (
-        (d.delta_k + d.delta_kp1 - 2 * d.s_k)
+    denominator = d.s_i  + (
+        (d.delta_i + d.delta_ip1 - 2 * d.s_i)
         * phi*(1-phi)
     )
     return torch.log(numerator) - 2 * torch.log(denominator)
