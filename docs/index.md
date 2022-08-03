@@ -49,7 +49,7 @@ The parameters have the following properties:
 |-----------|---------|---------|---------|
 | Amplitude | Uniform | 0.2     | 1       |
 | Frequency | Uniform | 0.1     | 0.25    |
-| Phase     | Uniform | 0       | 2$\pi$  |
+| Phase     | Uniform | 0       | 2 $\pi$  |
 
 And our simulator is implemented as follows:
 
